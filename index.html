@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Leaflet GeoTIFF Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Preconnect to CDNs for better performance -->
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+
+  <style>
+    body { margin:0; padding:0; }
+    #map { height: 100vh; width: 100vw; }
+    
+    /* Loading screen */
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #4c7ef3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Controls on the right */
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 60px; /* เพิ่มระยะห่างจากปุ่มซูม */
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      max-width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+    
+    .controls.hidden {
+      transform: translateX(-390px);
+    }
+    
+    .toggle-controls {
+      position: absolute;
+      top: 75px;
+      left: 10px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 5px;
+      background: #4c7ef3;
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+      z-index: 1001;
+    }
+    
+    /* Toolbar on the right */
+    .toolbar {
+      position: absolute;
+      top: 10px;
+      right: 60px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 5px;
+    }
+    
+    .toolbar-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 5px;
+      background: #4c7ef3;
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    
+    .toolbar-btn:hover {
+      background: #3b5fc9;
+    }
+    
+    .toolbar-btn.active {
+      background: #2a4fa7;
+    }
+    
+    .control-group {
+      margin-bottom: 12px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+    }
+    
+    .opacity-value {
+      display: inline-block;
+      width: 40px;
+      text-align: right;
+    }
+    
+    button {
+      padding: 8px 12px;
+      background: #4c7ef3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    
+    button:hover {
+      background: #3b5fc9;
+    }
+    
+    button.remove-btn {
+      background: #ff5252;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    
+    button.remove-btn:hover {
+      background: #e00000;
+    }
+    
+    .layer-list {
+      margin-top: 15px;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+    
+    .layer-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 6px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+    
+    .layer-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 8px;
+    }
+    
+    .layer-controls {
+      display: flex;
+      align-items: center;
+    }
+    
+    .visibility-toggle {
+      margin-right: 8px;
+    }
+    
+    /* Info Panel - Moved to right side */
+    .info-panel {
+      position: absolute;
+      top: 60px;
+      right: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      width: 350px;
+      max-height: 70vh;
+      overflow-y: auto;
+      display: none;
+    }
+    
+    .info-panel h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    .info-content {
+      margin-bottom: 15px;
+    }
+    
+    .info-tabs {
+      display: flexible;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 15px;
+    }
+    
+    .info-tab {
+      padding: 8px 15px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .info-tab.active {
+      border-bottom: 2px solid #4c7ef3;
+      color: #4c7ef3;
+    }
+    
+    .info-editor {
+      width: 100%;
+      min-height: 200px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px;
+      font-family: monospace;
+      resize: vertical;
+    }
+    
+    .info-preview {
+      border: 1px solid #eee;
+      border-radius: 4px;
+      padding: 15px;
+      min-height: 200px;
+    }
+    
+    .info-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    
+    /* Marker styling */
+    .custom-marker {
+      background-color: #4c7ef3;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    /* Marker popup styling */
+    .marker-popup-content {
+      max-width: 300px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    /* Base map opacity controls */
+    .basemap-opacity {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+    
+    /* URL input styling */
+    .url-input-group {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+    }
+    
+    .url-input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    .url-load-btn {
+      padding: 8px 12px;
+      background: #4c7ef3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 10px;
+      color: #4c7ef3;
+    }
+    
+    .kml-info {
+      background: #f0f7ff;
+      border: 1px solid #c5e1ff;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <p>กำลังโหลดแอปพลิเคชัน...</p>
+  </div>
+  
+  <!-- Toggle Controls Button -->
+  <button class="toggle-controls" id="toggleControlsBtn" title="แสดงแผงควบคุม">
+    <i class="ti ti-layout-sidebar-right"></i>
+  </button>
+  
+  <!-- Controls on the right -->
+  <div class="controls" id="controlsPanel">
+    <div class="control-group">
+      <label for="geotiffInput">เลือกไฟล์ GeoTIFF (หลายไฟล์ได้):</label>
+      <input type="file" id="geotiffInput" accept=".tif,.tiff,.kml" multiple>
+    </div>
+    
+    <div class="control-group">
+      <label for="urlInput">โหลดจาก URL (KML):</label>
+      <div class="url-input-group">
+        <input type="text" id="urlInput" class="url-input" placeholder="https://example.com/file.kml">
+        <button id="loadUrlBtn" class="url-load-btn">โหลด</button>
+      </div>
+      <div id="loadingIndicator" class="loading">
+        <i class="ti ti-loader"></i> กำลังโหลด...
+      </div>
+      <div class="kml-info">
+        <small>หมายเหตุ: เนื่องจากข้อจำกัดด้านความปลอดภัย การโหลด KML จากโดเมนอื่นอาจไม่ทำงานในบางเบราว์เซอร์</small>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label for="opacitySlider">ความโปร่งใส GeoTIFF: <span id="opacityValue" class="opacity-value">100%</span></label>
+      <input type="range" id="opacitySlider" min="0" max="100" value="100">
+    </div>
+    
+    <div class="basemap-opacity">
+      <label for="basemapOpacitySlider">ความโปร่งใสแผนที่: <span id="basemapOpacityValue" class="opacity-value">100%</span></label>
+      <input type="range" id="basemapOpacitySlider" min="0" max="100" value="100">
+    </div>
+    
+    <div class="layer-list" id="layerList">
+      <h3>เลเยอร์ที่โหลด</h3>
+      <div id="noLayersMessage">ยังไม่มีเลเยอร์</div>
+    </div>
+  </div>
+  
+  <!-- Toolbar on the right -->
+  <div class="toolbar">
+    <button class="toolbar-btn" id="addMarkerBtn" title="เพิ่มจุด">
+      <i class="ti ti-map-pin"></i>
+    </button>
+    <button class="toolbar-btn" id="infoPanelBtn" title="แสดงข้อมูลสถานที่">
+      <i class="ti ti-info-circle"></i>
+    </button>
+    <button class="toolbar-btn" id="deleteMarkerBtn" title="ลบจุด">
+      <i class="ti ti-trash"></i>
+    </button>
+  </div>
+  
+  <!-- Info Panel -->
+  <div class="info-panel" id="infoPanel">
+    <h3>รายละเอียดสถานที่</h3>
+    
+    <div class="info-tabs">
+      <div class="info-tab active" data-tab="edit">แก้ไข</div>
+      <div class="info-tab" data-tab="preview">แสดงผล</div>
+    </div>
+    
+    <div class="info-content" id="editTab">
+      <textarea class="info-editor" id="infoEditor" placeholder="ใส่รายละเอียดสถานที่"></textarea>
+    </div>
+    
+    <div class="info-content" id="previewTab" style="display: none;">
+      <div class="info-preview" id="infoPreview"></div>
+    </div>
+    
+    <div class="info-actions">
+      <button id="deleteMarkerBtnPanel">ลบจุด</button>
+      <div>
+        <button id="cancelInfoBtn">ยกเลิก</button>
+        <button id="saveInfoBtn">บันทึก</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="map"></div>
+
+  <!-- Load scripts asynchronously -->
+  <script>
+    // Function to load scripts dynamically
+    function loadScript(src, onload) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = onload;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+
+    // Load scripts in sequence
+    loadScript('https://unpkg.com/leaflet@1.7.1/dist/leaflet.js', function() {
+      loadScript('https://unpkg.com/georaster', function() {
+        loadScript('https://unpkg.com/georaster-layer-for-leaflet', function() {
+          // All scripts loaded, initialize the application
+          initializeApp();
+        });
+      });
+    });
+
+    // Main application initialization
+    function initializeApp() {
+      // เริ่มต้นแผนที่โดยตั้งค่าที่ประเทศไทย
+      let map = L.map("map").setView([13.736717, 100.523186], 6);
+
+      // Base layers - ใช้แผนที่แบบไฮบริดฟรีจากแหล่งต่างๆ
+      let baseLayers = {
+        "Google Hybrid (Free)": L.tileLayer(
+          "https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}", {
+            maxZoom: 20,
+            subdomains: ['mt0','mt1','mt2','mt3'],
+            attribution: "Map data © Google"
+          }
+        ),
+        "OpenStreetMap": L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          { attribution: "© OSM contributors" }
+        )
+      };
+
+      // เพิ่มแผนที่พื้นฐานเริ่มต้น (Google Hybrid)
+      baseLayers["Google Hybrid (Free)"].addTo(map);
+      
+      // เก็บค่า opacity ปัจจุบันของแผนที่พื้นฐาน
+      let currentBasemapOpacity = 1.0;
+      
+      // เพิ่มตัวควบคุมเลเยอร์
+      L.control.layers(baseLayers).addTo(map);
+
+      // เก็บเลเยอร์ GeoTIFF ทั้งหมด
+      const geotiffLayers = new Map();
+      let layerCounter = 0;
+      
+      // เก็บข้อมูล marker
+      let customMarkers = [];
+      let currentMarker = null;
+      let infoPanelVisible = false;
+
+      // ฟังก์ชันเคลียร์ URL
+      function clearUrlInput() {
+        document.getElementById('urlInput').value = '';
+      }
+
+      // ฟังก์ชันโหลด GeoTIFF จาก ArrayBuffer
+      function loadGeoTIFFFromArrayBuffer(arrayBuffer, fileName) {
+        parseGeoraster(arrayBuffer).then(georaster => {
+          // สร้างเลเยอร์ใหม่ด้วยค่าความโปร่งใสปัจจุบัน
+          const opacity = document.getElementById('opacitySlider').value / 100;
+          
+          const geotiffLayer = new GeoRasterLayer({
+            georaster: georaster,
+            opacity: opacity,
+            resolution: 256,
+            pixelValuesToColorFn: values => {
+              // ฟังก์ชันปรับสี (สามารถปรับแต่งได้ตามต้องการ)
+              const [r, g, b] = values;
+              return `rgb(${r}, ${g}, ${b})`;
+            }
+          });
+
+          // เพิ่มเลเยอร์ลงในแผนที่
+          geotiffLayer.addTo(map);
+          
+          // เก็บข้อมูลเลเยอร์
+          const layerId = `layer-${layerCounter++}`;
+          geotiffLayers.set(layerId, {
+            layer: geotiffLayer,
+            name: fileName,
+            visible: true,
+            type: 'geotiff'
+          });
+          
+          // อัปเดต UI
+          updateLayerList();
+          
+        }).catch(error => {
+          console.error("Error loading GeoTIFF:", error);
+          alert("ไม่สามารถโหลดไฟล์ GeoTIFF ได้: " + error.message);
+        });
+      }
+
+      // ฟังก์ชันโหลด KML จาก URL
+      function loadKMLFromURL(url, fileName) {
+        // แสดง indicator การโหลด
+        document.getElementById('loadingIndicator').style.display = 'block';
+        
+        // ใช้ CORS proxy ทางเลือก
+        const corsProxy = "https://api.allorigins.win/raw?url=";
+        
+        fetch(corsProxy + encodeURIComponent(url))
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.text();
+          })
+          .then(kmlText => {
+            // ซ่อน indicator การโหลด
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            // ตรวจสอบว่าเป็นไฟล์ KML จริงหรือไม่
+            if (!kmlText.includes('<kml') && !kmlText.includes('</kml>')) {
+              throw new Error('ไฟล์ไม่ใช่รูปแบบ KML ที่ถูกต้อง');
+            }
+            
+            // สร้าง marker เพื่อแสดงข้อมูล KML
+            const kmlLayer = L.marker([15, 100], {
+              icon: L.divIcon({
+                className: 'kml-marker',
+                html: `<div style="background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 300px;">
+                         <h4 style="margin: 0 0 10px 0; color: #4c7ef3;">KML File Loaded</h4>
+                         <p style="margin: 0 0 8px 0;"><strong>ชื่อ:</strong> ${fileName || 'KML from URL'}</p>
+                         <p style="margin: 0 0 8px 0;"><strong>ที่มา:</strong> ${url}</p>
+                         <p style="margin: 0; font-size: 12px; color: #666;">KML ถูกโหลดแล้ว แต่ไม่สามารถแสดงบนแผนที่ได้เนื่องจากข้อจำกัดด้านความปลอดภัยของเบราว์เซอร์</p>
+                       </div>`,
+                iconSize: [320, 150],
+                iconAnchor: [160, 75]
+              })
+            }).addTo(map);
+            
+            // เก็บข้อมูลเลเยอร์
+            const layerId = `layer-${layerCounter++}`;
+            geotiffLayers.set(layerId, {
+              layer: kmlLayer,
+              name: fileName || 'KML from URL',
+              visible: true,
+              type: 'kml'
+            });
+            
+            // อัปเดต UI
+            updateLayerList();
+            
+            // ย้ายแผนที่ไปยังตำแหน่งที่เหมาะสม
+            map.setView([20, 100], 3);
+            
+            // เคลียร์ URL หลังจากโหลดเสร็จ
+            clearUrlInput();
+          })
+          .catch(error => {
+            // ซ่อน indicator การโหลด
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            console.error("Error loading KML:", error);
+            
+            // แสดงข้อมูลเกี่ยวกับ KML แม้ว่าจะโหลดไม่สำเร็จ
+            const kmlLayer = L.marker([15, 100], {
+              icon: L.divIcon({
+                className: 'kml-marker',
+                html: `<div style="background: #fff3f3; padding: 15px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 300px; border: 1px solid #ff5252;">
+                         <h4 style="margin: 0 0 10px 0; color: #ff5252;">ไม่สามารถโหลด KML</h4>
+                         <p style="margin: 0 0 8px 0;"><strong>URL:</strong> ${url}</p>
+                         <p style="margin: 0 0 8px 0;"><strong>ข้อผิดพลาด:</strong> ${error.message}</p>
+                         <p style="margin: 0; font-size: 12px; color: #666;">เนื่องจากข้อจำกัดความปลอดภัยของเบราว์เซอร์</p>
+                       </div>`,
+                iconSize: [320, 150],
+                iconAnchor: [160, 75]
+              })
+            }).addTo(map);
+            
+            // เก็บข้อมูลเลเยอร์
+            const layerId = `layer-${layerCounter++}`;
+            geotiffLayers.set(layerId, {
+              layer: kmlLayer,
+              name: 'KML Error: ' + (fileName || 'KML from URL'),
+              visible: true,
+              type: 'kml-error'
+            });
+            
+            // อัปเดต UI
+            updateLayerList();
+            
+            // เคลียร์ URL หลังจากโหลดเสร็จ
+            clearUrlInput();
+          });
+      }
+
+      // อัปเดตรายการเลเยอร์ใน UI
+      function updateLayerList() {
+        const layerList = document.getElementById('layerList');
+        const noLayersMessage = document.getElementById('noLayersMessage');
+        
+        // ลบรายการเลเยอร์เก่าทั้งหมด (ยกเว้นหัวข้อและข้อความไม่มีเลเยอร์)
+        const items = layerList.querySelectorAll('.layer-item');
+        items.forEach(item => item.remove());
+        
+        if (geotiffLayers.size === 0) {
+          noLayersMessage.style.display = 'block';
+          return;
+        }
+        
+        noLayersMessage.style.display = 'none';
+        
+        // เพิ่มรายการเลเยอร์ใหม่
+        geotiffLayers.forEach((layerData, layerId) => {
+          const layerItem = document.createElement('div');
+          layerItem.className = 'layer-item';
+          
+          layerItem.innerHTML = `
+            <div class="layer-name" title="${layerData.name}">${layerData.name}</div>
+            <div class="layer-controls">
+              <input type="checkbox" class="visibility-toggle" ${layerData.visible ? 'checked' : ''}>
+              <button class="remove-btn" data-layer-id="${layerId}">ลบ</button>
+            </div>
+          `;
+          
+          layerList.appendChild(layerItem);
+          
+          // เพิ่ม event listener สำหรับปุ่มลบ
+          const removeBtn = layerItem.querySelector('.remove-btn');
+          removeBtn.addEventListener('click', function() {
+            const idToRemove = this.getAttribute('data-layer-id');
+            removeLayer(idToRemove);
+          });
+          
+          // เพิ่ม event listener สำหรับการแสดง/ซ่อน
+          const visibilityToggle = layerItem.querySelector('.visibility-toggle');
+          visibilityToggle.addEventListener('change', function() {
+            toggleLayerVisibility(layerId, this.checked);
+          });
+        });
+      }
+
+      // ลบเลเยอร์
+      function removeLayer(layerId) {
+        if (geotiffLayers.has(layerId)) {
+          const layerData = geotiffLayers.get(layerId);
+          map.removeLayer(layerData.layer);
+          geotiffLayers.delete(layerId);
+          updateLayerList();
+        }
+      }
+
+      // เปิด/ปิดการแสดงเลเยอร์
+      function toggleLayerVisibility(layerId, isVisible) {
+        if (geotiffLayers.has(layerId)) {
+          const layerData = geotiffLayers.get(layerId);
+          layerData.visible = isVisible;
+          
+          if (isVisible) {
+            map.addLayer(layerData.layer);
+          } else {
+            map.removeLayer(layerData.layer);
+          }
+        }
+      }
+
+      // อัปโหลดไฟล์
+      document.getElementById("geotiffInput").addEventListener("change", function(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          
+          // ตรวจสอบประเภทไฟล์
+          if (file.name.toLowerCase().endsWith('.kml')) {
+            // โหลดไฟล์ KML
+            const reader = new FileReader();
+            reader.onload = function() {
+              const kmlText = reader.result;
+              
+              // สร้าง marker เพื่อแสดงข้อมูล KML
+              const kmlLayer = L.marker([15, 100], {
+                icon: L.divIcon({
+                  className: 'kml-marker',
+                  html: `<div style="background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 300px;">
+                           <h4 style="margin: 0 0 10px 0; color: #4c7ef3;">KML File Loaded</h4>
+                           <p style="margin: 0 0 8px 0;"><strong>ชื่อ:</strong> ${file.name}</p>
+                           <p style="margin: 0; font-size: 12px; color: #666;">KML ถูกโหลดแล้ว แต่ไม่สามารถแสดงบนแผนที่ได้เนื่องจากข้อจำกัดด้านความปลอดภัยของเบราว์เซอร์</p>
+                         </div>`,
+                  iconSize: [320, 120],
+                  iconAnchor: [160, 60]
+                })
+              }).addTo(map);
+              
+              // เก็บข้อมูลเลเยอร์
+              const layerId = `layer-${layerCounter++}`;
+              geotiffLayers.set(layerId, {
+                layer: kmlLayer,
+                name: file.name,
+                visible: true,
+                type: 'kml'
+              });
+              
+              // อัปเดต UI
+              updateLayerList();
+            };
+            reader.readAsText(file);
+          } else if (file.name.toLowerCase().endsWith('.tif') || 
+                     file.name.toLowerCase().endsWith('.tiff')) {
+            // โหลดไฟล์ GeoTIFF
+            const reader = new FileReader();
+            reader.onload = function() {
+              loadGeoTIFFFromArrayBuffer(reader.result, file.name);
+            };
+            reader.onerror = function() {
+              alert("เกิดข้อผิดพลาดในการอ่านไฟล์ " + file.name);
+            };
+            reader.readAsArrayBuffer(file);
+          } else {
+            alert("ไฟล์ " + file.name + " ไม่ใช่ไฟล์ GeoTIFF หรือ KML (.tif, .tiff, .kml)");
+          }
+        }
+        
+        // รีเซ็ต input เพื่อให้สามารถเลือกไฟล์เดิมอีกครั้งได้
+        e.target.value = '';
+      });
+
+      // โหลดจาก URL
+      document.getElementById("loadUrlBtn").addEventListener("click", function() {
+        const url = document.getElementById('urlInput').value.trim();
+        
+        if (!url) {
+          alert("กรุณาใส่ URL");
+          return;
+        }
+        
+        // ตรวจสอบประเภทไฟล์จาก URL
+        if (url.toLowerCase().endsWith('.kml')) {
+          loadKMLFromURL(url, 'KML from URL');
+        } else {
+          alert("URL ต้องเป็นไฟล์ KML (.kml)");
+        }
+      });
+
+      // ควบคุมความโปร่งใสของ GeoTIFF
+      const opacitySlider = document.getElementById('opacitySlider');
+      const opacityValue = document.getElementById('opacityValue');
+      
+      opacitySlider.addEventListener('input', function() {
+        const opacity = this.value / 100;
+        opacityValue.textContent = `${this.value}%`;
+        
+        // อัปเดตความโปร่งใสของทุกเลเยอร์ GeoTIFF
+        geotiffLayers.forEach(layerData => {
+          if (layerData.type === 'geotiff') {
+            layerData.layer.setOpacity(opacity);
+          }
+        });
+      });
+
+      // ควบคุมความโปร่งใสของแผนที่พื้นฐาน
+      const basemapOpacitySlider = document.getElementById('basemapOpacitySlider');
+      const basemapOpacityValue = document.getElementById('basemapOpacityValue');
+      
+      basemapOpacitySlider.addEventListener('input', function() {
+        const opacity = this.value / 100;
+        basemapOpacityValue.textContent = `${this.value}%`;
+        currentBasemapOpacity = opacity;
+        
+        // อัปเดตความโปร่งใสของแผนที่พื้นฐาน
+        updateBasemapOpacity();
+      });
+
+      // อัปเดตความโปร่งใสของแผนที่พื้นฐาน
+      function updateBasemapOpacity() {
+        // ตรวจสอบว่าแผนที่พื้นฐานปัจจุบันคืออะไร
+        let currentBasemap;
+        if (map.hasLayer(baseLayers["Google Hybrid (Free)"])) {
+          currentBasemap = baseLayers["Google Hybrid (Free)"];
+        } else if (map.hasLayer(baseLayers["OpenStreetMap"])) {
+          currentBasemap = baseLayers["OpenStreetMap"];
+        }
+        
+        // อัปเดตความโปร่งใส
+        if (currentBasemap) {
+          currentBasemap.setOpacity(currentBasemapOpacity);
+        }
+      }
+
+      // ฟังก์ชันสำหรับเพิ่ม marker
+      function addMarker(latLng) {
+        // สร้าง marker ใหม่
+        const marker = L.marker(latLng, {
+          icon: L.divIcon({
+            className: 'custom-marker',
+            html: '<i class="ti ti-map-pin" style="color: white; font-size: 18px;"></i>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 24]
+          })
+        }).addTo(map);
+        
+        // เก็บข้อมูล marker
+        const markerData = {
+          marker: marker,
+          latLng: latLng,
+          content: ''
+        };
+        
+        customMarkers.push(markerData);
+        currentMarker = markerData;
+        
+        // เพิ่ม popup สำหรับ marker
+        updateMarkerPopup(markerData);
+        
+        // แสดง info panel
+        showInfoPanel();
+        
+        // เพิ่ม event สำหรับการคลิกที่ marker
+        marker.on('click', function() {
+          currentMarker = markerData;
+          document.getElementById('infoEditor').value = markerData.content;
+          showInfoPanel();
+        });
+      }
+      
+      // อัปเดต popup ของ marker
+      function updateMarkerPopup(markerData) {
+        let content = markerData.content || 'ไม่มีข้อมูล';
+        markerData.marker.bindPopup(content, {
+          maxWidth: 300,
+          minWidth: 200
+        });
+      }
+      
+      // ลบ marker ปัจจุบัน
+      function deleteCurrentMarker() {
+        if (currentMarker) {
+          // ลบ marker ออกจากแผนที่
+          map.removeLayer(currentMarker.marker);
+          
+          // ลบออกจากอาร์เรย์
+          const index = customMarkers.indexOf(currentMarker);
+          if (index > -1) {
+            customMarkers.splice(index, 1);
+          }
+          
+          // ปิด info panel
+          hideInfoPanel();
+          
+          // รีเซ็ต currentMarker
+          currentMarker = null;
+        }
+      }
+      
+      // แสดง info panel
+      function showInfoPanel() {
+        const infoPanel = document.getElementById('infoPanel');
+        infoPanel.style.display = 'block';
+        infoPanelVisible = true;
+        
+        // ตั้งค่า tab เริ่มต้น
+        switchTab('edit');
+        
+        // โฟกัสที่ editor
+        document.getElementById('infoEditor').focus();
+      }
+      
+      // ซ่อน info panel
+      function hideInfoPanel() {
+        const infoPanel = document.getElementById('infoPanel');
+        infoPanel.style.display = 'none';
+        infoPanelVisible = false;
+      }
+      
+      // สลับ tab
+      function switchTab(tabName) {
+        // อัปเดต UI ของ tabs
+        document.querySelectorAll('.info-tab').forEach(tab => {
+          if (tab.getAttribute('data-tab') === tabName) {
+            tab.classList.add('active');
+          } else {
+            tab.classList.remove('active');
+          }
+        });
+        
+        // แสดง content ของ tab ที่เลือก
+        if (tabName === 'edit') {
+          document.getElementById('editTab').style.display = 'block';
+          document.getElementById('previewTab').style.display = 'none';
+        } else {
+          document.getElementById('editTab').style.display = 'none';
+          document.getElementById('previewTab').style.display = 'block';
+          document.getElementById('infoPreview').textContent = document.getElementById('infoEditor').value;
+        }
+      }
+      
+      // บันทึกข้อมูล
+      function saveInfo() {
+        if (currentMarker) {
+          currentMarker.content = document.getElementById('infoEditor').value;
+          
+          // อัปเดต popup
+          updateMarkerPopup(currentMarker);
+          
+          alert('บันทึกข้อมูลเรียบร้อยแล้ว');
+          hideInfoPanel();
+        }
+      }
+
+      // ซ่อน/แสดงแผงควบคุม
+      function toggleControls() {
+        const controlsPanel = document.getElementById('controlsPanel');
+        const toggleBtn = document.getElementById('toggleControlsBtn');
+        
+        controlsPanel.classList.toggle('hidden');
+        
+        if (controlsPanel.classList.contains('hidden')) {
+          toggleBtn.innerHTML = '<i class="ti ti-layout-sidebar-left"></i>';
+          toggleBtn.title = 'แสดงแผงควบคุม';
+        } else {
+          toggleBtn.innerHTML = '<i class="ti ti-layout-sidebar-right"></i>';
+          toggleBtn.title = 'ซ่อนแผงควบคุม';
+        }
+      }
+
+      // Event listeners สำหรับ UI
+      document.getElementById('addMarkerBtn').addEventListener('click', function() {
+        // เปิดโหมดเพิ่ม marker
+        map.once('click', function(e) {
+          addMarker(e.latlng);
+        });
+        
+        alert('คลิกบนแผนที่เพื่อเพิ่มจุด');
+      });
+      
+      document.getElementById('infoPanelBtn').addEventListener('click', function() {
+        if (infoPanelVisible) {
+          hideInfoPanel();
+        } else if (customMarkers.length > 0) {
+          // ถ้ายังไม่มี marker ที่เลือก ให้เลือก marker ล่าสุด
+          if (!currentMarker) {
+            currentMarker = customMarkers[customMarkers.length - 1];
+          }
+          document.getElementById('infoEditor').value = currentMarker.content;
+          showInfoPanel();
+        } else {
+          alert('ยังไม่มีจุดบนแผนที่');
+        }
+      });
+      
+      document.getElementById('deleteMarkerBtn').addEventListener('click', function() {
+        if (customMarkers.length === 0) {
+          alert('ยังไม่มีจุดบนแผนที่');
+          return;
+        }
+        
+        if (confirm('ต้องการลบจุดทั้งหมดใช่หรือไม่?')) {
+          // ลบ marker ทั้งหมด
+          customMarkers.forEach(markerData => {
+            map.removeLayer(markerData.marker);
+          });
+          
+          // ล้างอาร์เรย์
+          customMarkers = [];
+          currentMarker = null;
+          
+          // ปิด info panel
+          hideInfoPanel();
+        }
+      });
+      
+      // Tab switching
+      document.querySelectorAll('.info-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          const tabName = this.getAttribute('data-tab');
+          switchTab(tabName);
+        });
+      });
+      
+      // Save and cancel buttons
+      document.getElementById('saveInfoBtn').addEventListener('click', saveInfo);
+      document.getElementById('cancelInfoBtn').addEventListener('click', hideInfoPanel);
+      
+      // Delete marker button in panel
+      document.getElementById('deleteMarkerBtnPanel').addEventListener('click', function() {
+        if (currentMarker && confirm('ต้องการลบจุดนี้ใช่หรือไม่?')) {
+          deleteCurrentMarker();
+        }
+      });
+
+      // Toggle controls button
+      document.getElementById('toggleControlsBtn').addEventListener('click', toggleControls);
+
+      // เคลียร์ URL input เมื่อเริ่มต้น
+      clearUrlInput();
+
+      // อัปเดต UI เริ่มต้น
+      updateLayerList();
+      
+      // Hide loading screen
+      document.getElementById('loadingScreen').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
