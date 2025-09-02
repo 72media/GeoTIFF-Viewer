@@ -15,6 +15,9 @@
   <!-- Tabler Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
 
+  <!-- Marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   <style>
     body { margin:0; padding:0; }
     #map { height: 100vh; width: 100vw; }
@@ -259,6 +262,7 @@
       border-radius: 4px;
       padding: 15px;
       min-height: 200px;
+      overflow: auto;
     }
     
     .info-actions {
@@ -326,6 +330,82 @@
       padding: 10px;
       margin-top: 10px;
     }
+    
+    /* Marker color dropdown */
+    .marker-color-dropdown {
+      position: absolute;
+      top: 60px;
+      right: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+    }
+    
+    .color-option {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    
+    .color-option:hover {
+      border-color: #333;
+    }
+    
+    .color-option.selected {
+      border-color: #333;
+      transform: scale(1.1);
+    }
+    
+    /* Import/Export buttons */
+    .import-export-buttons {
+      margin-top: 15px;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    /* Markdown guide */
+    .markdown-guide {
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    
+    .markdown-guide summary {
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    /* Popup content styling */
+    .popup-content {
+      max-width: 300px;
+      max-height: 400px;
+      overflow: auto;
+    }
+    
+    .popup-content iframe {
+      width: 100%;
+      height: 200px;
+      border: none;
+      border-radius: 4px;
+    }
+    
+    .popup-content img {
+      max-width: 100%;
+      height: auto;
+    }
   </style>
 </head>
 <body>
@@ -375,6 +455,26 @@
       <h3>เลเยอร์ที่โหลด</h3>
       <div id="noLayersMessage">ยังไม่มีเลเยอร์</div>
     </div>
+    
+    <!-- Import/Export buttons -->
+    <div class="import-export-buttons">
+      <button id="exportGeoJSONBtn">Export GeoJSON</button>
+      <label for="importGeoJSONInput" style="display: block; margin-top: 8px;">
+        <input type="file" id="importGeoJSONInput" accept=".geojson,.json" style="display: none;">
+        <span style="display: block; text-align: center; padding: 8px 12px; background: #4c7ef3; color: white; border-radius: 4px; cursor: pointer;">Import GeoJSON</span>
+      </label>
+    </div>
+  </div>
+  
+  <!-- Marker color dropdown -->
+  <div class="marker-color-dropdown" id="markerColorDropdown">
+    <div class="color-option selected" data-color="#4c7ef3" style="background-color: #4c7ef3;"></div>
+    <div class="color-option" data-color="#ff5252" style="background-color: #ff5252;"></div>
+    <div class="color-option" data-color="#4caf50" style="background-color: #4caf50;"></div>
+    <div class="color-option" data-color="#2196f3" style="background-color: #2196f3;"></div>
+    <div class="color-option" data-color="#ffeb3b" style="background-color: #ffeb3b;"></div>
+    <div class="color-option" data-color="#9c27b0" style="background-color: #9c27b0;"></div>
+    <div class="color-option" data-color="#ff9800" style="background-color: #ff9800;"></div>
   </div>
   
   <!-- Toolbar on the right -->
@@ -397,14 +497,47 @@
     <div class="info-tabs">
       <div class="info-tab active" data-tab="edit">แก้ไข</div>
       <div class="info-tab" data-tab="preview">แสดงผล</div>
+      <div class="info-tab" data-tab="help">วิธีใช้</div>
     </div>
     
     <div class="info-content" id="editTab">
-      <textarea class="info-editor" id="infoEditor" placeholder="ใส่รายละเอียดสถานที่"></textarea>
+      <textarea class="info-editor" id="infoEditor" placeholder="ใส่รายละเอียดสถานที่ (รองรับ Markdown และ HTML)"></textarea>
     </div>
     
     <div class="info-content" id="previewTab" style="display: none;">
       <div class="info-preview" id="infoPreview"></div>
+    </div>
+    
+    <div class="info-content" id="helpTab" style="display: none;">
+      <div class="markdown-guide">
+        <h4>คู่มือการใช้งาน Markdown และ HTML</h4>
+        <p>คุณสามารถใช้ Markdown และ HTML เพื่อจัดรูปแบบเนื้อหาใน popup ได้:</p>
+        
+        <h5>Markdown พื้นฐาน:</h5>
+        <ul>
+          <li><strong>ข้อความหนา</strong>: **ข้อความ** หรือ __ข้อความ__</li>
+          <li><em>ข้อความเอียง</em>: *ข้อความ* หรือ _ข้อความ_</li>
+          <li>รายการ:<br>
+            - รายการ項目 1<br>
+            - รายการ項目 2</li>
+          <li>[ลิงก์](https://example.com)</li>
+          <li>![รูปภาพ](https://example.com/image.jpg)</li>
+        </ul>
+        
+        <h5>HTML ที่รองรับ:</h5>
+        <ul>
+          <li>&lt;iframe&gt; (จาก YouTube, Google Drive, ฯลฯ)</li>
+          <li>&lt;img&gt;, &lt;video&gt;, &lt;audio&gt;</li>
+          <li>&lt;a&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;br&gt;</li>
+          <li>&lt;div&gt;, &lt;span&gt; พร้อม style</li>
+        </ul>
+        
+        <h5>ตัวอย่าง iframe YouTube:</h5>
+        <pre>&lt;iframe width="100%" height="200" src="https://www.youtube.com/embed/VIDEO_ID" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;</pre>
+        
+        <h5>ตัวอย่าง iframe Google Drive:</h5>
+        <pre>&lt;iframe src="https://drive.google.com/file/d/FILE_ID/preview" width="100%" height="200"&gt;&lt;/iframe&gt;</pre>
+      </div>
     </div>
     
     <div class="info-actions">
@@ -476,6 +609,8 @@
       let customMarkers = [];
       let currentMarker = null;
       let infoPanelVisible = false;
+      let selectedMarkerColor = '#4c7ef3'; // Default color
+      let isAddingMarker = false;
 
       // ฟังก์ชันเคลียร์ URL
       function clearUrlInput() {
@@ -510,6 +645,12 @@
             visible: true,
             type: 'geotiff'
           });
+          
+          // 1. เมื่อเพิ่ม geotiff ให้ไปยังตำแหน่งตามพิกัดของภาพนั้นแบบดูเต็มเฟรม
+          const bounds = geotiffLayer.getBounds();
+          if (bounds.isValid()) {
+            map.fitBounds(bounds);
+          }
           
           // อัปเดต UI
           updateLayerList();
@@ -815,17 +956,22 @@
         const marker = L.marker(latLng, {
           icon: L.divIcon({
             className: 'custom-marker',
-            html: '<i class="ti ti-map-pin" style="color: white; font-size: 18px;"></i>',
+            html: `<i class="ti ti-map-pin" style="color: white; font-size: 18px;"></i>`,
             iconSize: [24, 24],
             iconAnchor: [12, 24]
-          })
+          }),
+          draggable: true // 2. ให้ย้ายหมุดได้
         }).addTo(map);
+        
+        // ตั้งค่าสีของ marker
+        marker.getElement().style.backgroundColor = selectedMarkerColor;
         
         // เก็บข้อมูล marker
         const markerData = {
           marker: marker,
           latLng: latLng,
-          content: ''
+          content: '',
+          color: selectedMarkerColor
         };
         
         customMarkers.push(markerData);
@@ -838,19 +984,55 @@
         showInfoPanel();
         
         // เพิ่ม event สำหรับการคลิกที่ marker
-        marker.on('click', function() {
+        marker.on('click', function(e) {
           currentMarker = markerData;
           document.getElementById('infoEditor').value = markerData.content;
           showInfoPanel();
+          
+          // 3. คลิกที่หมุด → สามารถแก้ไขข้อความ popup ได้
+          // (การแก้ไขทำผ่าน info panel)
         });
+        
+        // เพิ่ม event สำหรับการลาก marker
+        marker.on('dragend', function(e) {
+          const newLatLng = marker.getLatLng();
+          markerData.latLng = newLatLng;
+        });
+        
+        return markerData;
+      }
+      
+      // ฟังก์ชันแปลง Markdown เป็น HTML
+      function parseMarkdown(content) {
+        // ใช้ marked.js เพื่อแปลง Markdown เป็น HTML
+        if (typeof marked === 'function') {
+          try {
+            return marked.parse(content);
+          } catch (e) {
+            console.error('Error parsing Markdown:', e);
+            return content;
+          }
+        }
+        return content;
       }
       
       // อัปเดต popup ของ marker
       function updateMarkerPopup(markerData) {
         let content = markerData.content || 'ไม่มีข้อมูล';
-        markerData.marker.bindPopup(content, {
-          maxWidth: 300,
-          minWidth: 200
+        
+        // แปลง Markdown เป็น HTML ถ้ามี
+        const htmlContent = parseMarkdown(content);
+        
+        // สร้าง div สำหรับแสดงผล
+        const popupContent = document.createElement('div');
+        popupContent.className = 'popup-content';
+        popupContent.innerHTML = htmlContent;
+        
+        // Bind popup กับเนื้อหาที่แปลงแล้ว
+        markerData.marker.bindPopup(popupContent, {
+          maxWidth: 400,
+          minWidth: 300,
+          maxHeight: 500
         });
       }
       
@@ -892,12 +1074,22 @@
         const infoPanel = document.getElementById('infoPanel');
         infoPanel.style.display = 'none';
         infoPanelVisible = false;
+        currentMarker = null;
       }
       
-      // สลับ tab
+      // สลับ tab ใน info panel
       function switchTab(tabName) {
-        // อัปเดต UI ของ tabs
-        document.querySelectorAll('.info-tab').forEach(tab => {
+        // ซ่อนทุก tab
+        document.getElementById('editTab').style.display = 'none';
+        document.getElementById('previewTab').style.display = 'none';
+        document.getElementById('helpTab').style.display = 'none';
+        
+        // แสดง tab ที่เลือก
+        document.getElementById(tabName + 'Tab').style.display = 'block';
+        
+        // อัปเดตสถานะ active ของ tab
+        const tabs = document.querySelectorAll('.info-tab');
+        tabs.forEach(tab => {
           if (tab.getAttribute('data-tab') === tabName) {
             tab.classList.add('active');
           } else {
@@ -905,93 +1097,157 @@
           }
         });
         
-        // แสดง content ของ tab ที่เลือก
-        if (tabName === 'edit') {
-          document.getElementById('editTab').style.display = 'block';
-          document.getElementById('previewTab').style.display = 'none';
-        } else {
-          document.getElementById('editTab').style.display = 'none';
-          document.getElementById('previewTab').style.display = 'block';
-          document.getElementById('infoPreview').textContent = document.getElementById('infoEditor').value;
+        // หากเป็น tab preview ให้แสดงตัวอย่าง
+        if (tabName === 'preview') {
+          const content = document.getElementById('infoEditor').value;
+          const htmlContent = parseMarkdown(content);
+          document.getElementById('infoPreview').innerHTML = htmlContent || '<em>ไม่มีข้อมูล</em>';
         }
       }
       
-      // บันทึกข้อมูล
-      function saveInfo() {
-        if (currentMarker) {
-          currentMarker.content = document.getElementById('infoEditor').value;
-          
-          // อัปเดต popup
-          updateMarkerPopup(currentMarker);
-          
-          alert('บันทึกข้อมูลเรียบร้อยแล้ว');
-          hideInfoPanel();
+      // 4. Export marker ทั้งหมดเป็น GeoJSON (พร้อมข้อมูลที่บันทึก)
+      function exportGeoJSON() {
+        if (customMarkers.length === 0) {
+          alert('ไม่มี marker ที่จะ export');
+          return;
         }
-      }
-
-      // ซ่อน/แสดงแผงควบคุม
-      function toggleControls() {
-        const controlsPanel = document.getElementById('controlsPanel');
-        const toggleBtn = document.getElementById('toggleControlsBtn');
         
-        controlsPanel.classList.toggle('hidden');
-        
-        if (controlsPanel.classList.contains('hidden')) {
-          toggleBtn.innerHTML = '<i class="ti ti-layout-sidebar-left"></i>';
-          toggleBtn.title = 'แสดงแผงควบคุม';
-        } else {
-          toggleBtn.innerHTML = '<i class="ti ti-layout-sidebar-right"></i>';
-          toggleBtn.title = 'ซ่อนแผงควบคุม';
-        }
-      }
-
-      // Event listeners สำหรับ UI
-      document.getElementById('addMarkerBtn').addEventListener('click', function() {
-        // เปิดโหมดเพิ่ม marker
-        map.once('click', function(e) {
-          addMarker(e.latlng);
+        // สร้าง GeoJSON FeatureCollection
+        const features = customMarkers.map(marker => {
+          return {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [marker.latLng.lng, marker.latLng.lat]
+            },
+            properties: {
+              content: marker.content,
+              color: marker.color
+            }
+          };
         });
         
-        alert('คลิกบนแผนที่เพื่อเพิ่มจุด');
+        const geoJSON = {
+          type: 'FeatureCollection',
+          features: features
+        };
+        
+        // สร้าง Blob และดาวน์โหลด
+        const blob = new Blob([JSON.stringify(geoJSON, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'markers.geojson';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      
+      // 5. Import GeoJSON กลับมาใช้ใหม่ได้
+      function importGeoJSON(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const geoJSON = JSON.parse(e.target.result);
+            
+            // ตรวจสอบว่าเป็น GeoJSON ที่ถูกต้อง
+            if (geoJSON.type !== 'FeatureCollection' || !Array.isArray(geoJSON.features)) {
+              throw new Error('รูปแบบ GeoJSON ไม่ถูกต้อง');
+            }
+            
+            // ลบ marker เดิมทั้งหมด
+            customMarkers.forEach(marker => map.removeLayer(marker.marker));
+            customMarkers = [];
+            
+            // เพิ่ม marker จาก GeoJSON
+            geoJSON.features.forEach(feature => {
+              if (feature.geometry.type === 'Point') {
+                const latLng = L.latLng(
+                  feature.geometry.coordinates[1],
+                  feature.geometry.coordinates[0]
+                );
+                
+                const markerData = addMarker(latLng);
+                
+                // ตั้งค่าข้อมูลเพิ่มเติม
+                if (feature.properties) {
+                  markerData.content = feature.properties.content || '';
+                  markerData.color = feature.properties.color || selectedMarkerColor;
+                  
+                  // อัปเดตสีของ marker
+                  markerData.marker.getElement().style.backgroundColor = markerData.color;
+                  
+                  // อัปเดต popup
+                  updateMarkerPopup(markerData);
+                }
+              }
+            });
+            
+            alert(`นำเข้า ${geoJSON.features.length} marker สำเร็จ`);
+          } catch (error) {
+            console.error('Error importing GeoJSON:', error);
+            alert('ไม่สามารถนำเข้า GeoJSON: ' + error.message);
+          }
+        };
+        reader.readAsText(file);
+      }
+      
+      // Event listeners สำหรับ UI
+      
+      // Toggle controls panel
+      document.getElementById('toggleControlsBtn').addEventListener('click', function() {
+        const controlsPanel = document.getElementById('controlsPanel');
+        controlsPanel.classList.toggle('hidden');
+        
+        const icon = this.querySelector('i');
+        if (controlsPanel.classList.contains('hidden')) {
+          icon.className = 'ti ti-layout-sidebar-left';
+          this.title = 'ซ่อนแผงควบคุม';
+        } else {
+          icon.className = 'ti ti-layout-sidebar-right';
+          this.title = 'แสดงแผงควบคุม';
+        }
       });
       
+      // Add marker button
+      document.getElementById('addMarkerBtn').addEventListener('click', function() {
+        isAddingMarker = !isAddingMarker;
+        
+        if (isAddingMarker) {
+          this.classList.add('active');
+          document.getElementById('markerColorDropdown').style.display = 'flex';
+        } else {
+          this.classList.remove('active');
+          document.getElementById('markerColorDropdown').style.display = 'none';
+        }
+      });
+      
+      // Info panel button
       document.getElementById('infoPanelBtn').addEventListener('click', function() {
         if (infoPanelVisible) {
           hideInfoPanel();
         } else if (customMarkers.length > 0) {
-          // ถ้ายังไม่มี marker ที่เลือก ให้เลือก marker ล่าสุด
-          if (!currentMarker) {
-            currentMarker = customMarkers[customMarkers.length - 1];
-          }
+          // แสดง info panel สำหรับ marker ล่าสุด
+          currentMarker = customMarkers[customMarkers.length - 1];
           document.getElementById('infoEditor').value = currentMarker.content;
           showInfoPanel();
         } else {
-          alert('ยังไม่มีจุดบนแผนที่');
+          alert('ไม่มี marker ในแผนที่');
         }
       });
       
+      // Delete marker button
       document.getElementById('deleteMarkerBtn').addEventListener('click', function() {
-        if (customMarkers.length === 0) {
-          alert('ยังไม่มีจุดบนแผนที่');
-          return;
-        }
-        
-        if (confirm('ต้องการลบจุดทั้งหมดใช่หรือไม่?')) {
-          // ลบ marker ทั้งหมด
-          customMarkers.forEach(markerData => {
-            map.removeLayer(markerData.marker);
-          });
-          
-          // ล้างอาร์เรย์
-          customMarkers = [];
-          currentMarker = null;
-          
-          // ปิด info panel
-          hideInfoPanel();
+        if (currentMarker) {
+          deleteCurrentMarker();
+        } else {
+          alert('กรุณาเลือก marker ที่ต้องการลบ');
         }
       });
       
-      // Tab switching
+      // Info panel tabs
       document.querySelectorAll('.info-tab').forEach(tab => {
         tab.addEventListener('click', function() {
           const tabName = this.getAttribute('data-tab');
@@ -999,27 +1255,92 @@
         });
       });
       
-      // Save and cancel buttons
-      document.getElementById('saveInfoBtn').addEventListener('click', saveInfo);
-      document.getElementById('cancelInfoBtn').addEventListener('click', hideInfoPanel);
-      
-      // Delete marker button in panel
-      document.getElementById('deleteMarkerBtnPanel').addEventListener('click', function() {
-        if (currentMarker && confirm('ต้องการลบจุดนี้ใช่หรือไม่?')) {
-          deleteCurrentMarker();
+      // Save info button
+      document.getElementById('saveInfoBtn').addEventListener('click', function() {
+        if (currentMarker) {
+          const content = document.getElementById('infoEditor').value;
+          currentMarker.content = content;
+          updateMarkerPopup(currentMarker);
+          hideInfoPanel();
         }
       });
-
-      // Toggle controls button
-      document.getElementById('toggleControlsBtn').addEventListener('click', toggleControls);
-
-      // เคลียร์ URL input เมื่อเริ่มต้น
-      clearUrlInput();
-
-      // อัปเดต UI เริ่มต้น
-      updateLayerList();
       
-      // Hide loading screen
+      // Cancel info button
+      document.getElementById('cancelInfoBtn').addEventListener('click', function() {
+        hideInfoPanel();
+      });
+      
+      // Delete marker from panel
+      document.getElementById('deleteMarkerBtnPanel').addEventListener('click', function() {
+        deleteCurrentMarker();
+      });
+      
+      // Marker color selection
+      document.querySelectorAll('.color-option').forEach(option => {
+        option.addEventListener('click', function() {
+          // อัปเดตสีที่เลือก
+          selectedMarkerColor = this.getAttribute('data-color');
+          
+          // อัปเดต UI
+          document.querySelectorAll('.color-option').forEach(opt => {
+            opt.classList.remove('selected');
+          });
+          this.classList.add('selected');
+          
+          // หากกำลังเพิ่ม marker ใหม่ ให้เปลี่ยนสี
+          if (isAddingMarker) {
+            // ไม่ต้องทำอะไรจนกว่าจะคลิกที่แผนที่
+          }
+        });
+      });
+      
+      // Export GeoJSON button
+      document.getElementById('exportGeoJSONBtn').addEventListener('click', function() {
+        exportGeoJSON();
+      });
+      
+      // Import GeoJSON input
+      document.getElementById('importGeoJSONInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          importGeoJSON(file);
+        }
+        
+        // รีเซ็ต input
+        e.target.value = '';
+      });
+      
+      // Event สำหรับการคลิกแผนที่เพื่อเพิ่ม marker
+      map.on('click', function(e) {
+        if (isAddingMarker) {
+          // เพิ่ม marker ใหม่
+          const markerData = addMarker(e.latlng);
+          
+          // อัปเดตสีของ marker
+          markerData.marker.getElement().style.backgroundColor = selectedMarkerColor;
+          markerData.color = selectedMarkerColor;
+          
+          // ปิดโหมดเพิ่ม marker
+          isAddingMarker = false;
+          document.getElementById('addMarkerBtn').classList.remove('active');
+          document.getElementById('markerColorDropdown').style.display = 'none';
+        }
+      });
+      
+      // Event สำหรับการคลิกนอก info panel เพื่อซ่อน
+      map.on('click', function() {
+        if (infoPanelVisible && !currentMarker) {
+          hideInfoPanel();
+        }
+      });
+      
+      // Event สำหรับการเปลี่ยนแผนที่พื้นฐาน
+      map.on('baselayerchange', function(e) {
+        // อัปเดตความโปร่งใสเมื่อเปลี่ยนแผนที่พื้นฐาน
+        updateBasemapOpacity();
+      });
+      
+      // ซ่อน loading screen เมื่อโหลดเสร็จ
       document.getElementById('loadingScreen').style.display = 'none';
     }
   </script>
