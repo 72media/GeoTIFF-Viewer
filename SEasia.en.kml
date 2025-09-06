@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<kml xmlns="http://earth.google.com/kml/2.0">
+<Folder>
+<name>Digital Typhoon: Meteorological Satellite Imagery: South East Asia</name>
+<GroundOverlay>
+<name>MTSAR-1R Infrared Channel 1 (Latest)</name>
+<visibility>1</visibility>
+<LookAt>
+<heading>0</heading>
+<latitude>12</latitude>
+<longitude>112</longitude>
+<tilt>0</tilt>
+<range>36000</range>
+</LookAt>
+<Icon>
+<href>http://agora.ex.nii.ac.jp/digital-typhoon/region/SEasia/1/images/640x480/latest.jpg</href>
+<refreshMode>onInterval</refreshMode>
+<refreshInterval>3600</refreshInterval>
+</Icon>
+<LatLonBox id="IR1">
+<north>27</north>
+<south>-3</south>
+<east>132</east>
+<west>92</west>
+</LatLonBox>
+</GroundOverlay>
+<GroundOverlay>
+<name>MTSAR-1R Infrared Channel 2 (Latest)</name>
+<visibility>0</visibility>
+<LookAt>
+<heading>0</heading>
+<latitude>12</latitude>
+<longitude>112</longitude>
+<tilt>0</tilt>
+<range>36000</range>
+</LookAt>
+<Icon>
+<href>http://agora.ex.nii.ac.jp/digital-typhoon/region/SEasia/2/images/640x480/latest.jpg</href>
+<refreshMode>onInterval</refreshMode>
+<refreshInterval>3600</refreshInterval>
+</Icon>
+<LatLonBox id="IR2">
+<north>27</north>
+<south>-3</south>
+<east>132</east>
+<west>92</west>
+</LatLonBox>
+</GroundOverlay>
+<GroundOverlay>
+<name>MTSAR-1R Infrared Channel 3 (Latest)</name>
+<visibility>0</visibility>
+<LookAt>
+<heading>0</heading>
+<latitude>12</latitude>
+<longitude>112</longitude>
+<tilt>0</tilt>
+<range>36000</range>
+</LookAt>
+<Icon>
+<href>http://agora.ex.nii.ac.jp/digital-typhoon/region/SEasia/3/images/640x480/latest.jpg</href>
+<refreshMode>onInterval</refreshMode>
+<refreshInterval>3600</refreshInterval>
+</Icon>
+<LatLonBox id="IR3">
+<north>27</north>
+<south>-3</south>
+<east>132</east>
+<west>92</west>
+</LatLonBox>
+</GroundOverlay>
+<GroundOverlay>
+<name>MTSAR-1R Infrared Channel 4 (Latest)</name>
+<visibility>0</visibility>
+<LookAt>
+<heading>0</heading>
+<latitude>12</latitude>
+<longitude>112</longitude>
+<tilt>0</tilt>
+<range>36000</range>
+</LookAt>
+<Icon>
+<href>http://agora.ex.nii.ac.jp/digital-typhoon/region/SEasia/4/images/640x480/latest.jpg</href>
+<refreshMode>onInterval</refreshMode>
+<refreshInterval>3600</refreshInterval>
+</Icon>
+<LatLonBox id="IR4">
+<north>27</north>
+<south>-3</south>
+<east>132</east>
+<west>92</west>
+</LatLonBox>
+</GroundOverlay>
+</Folder>
+</kml>
